@@ -59,23 +59,21 @@ Function Import-AtwsCmdLet
   Process
   {
 
-    If ($CacheInfo.CacheDirty -or $NoDiskCache.IsPresent -or $RefreshCache.IsPresent)
-    { 
-      Write-Verbose -Message ('{0}: Generating new functions (CacheDirty: {1}, NoDiskCache: {2}, RefreshCache: {3}) ' -F $MyInvocation.MyCommand.Name,$CacheInfo.CacheDirty.ToString(), $NoDiskCache.IsPresent.ToString(), $RefreshCache.IsPresent.ToString())
+    If ($CacheInfo.CacheDirty -or $NoDiskCache.IsPresent -or $RefreshCache.IsPresent) { 
+      Write-Verbose -Message ('{0}: Generating new functions (CacheDirty: {1}, NoDiskCache: {2}, RefreshCache: {3}) ' -F $MyInvocation.MyCommand.Name, $CacheInfo.CacheDirty.ToString(), $NoDiskCache.IsPresent.ToString(), $RefreshCache.IsPresent.ToString())
       
       $Activity = 'Downloading detailed information about all Autotask entity types'
       $ParentId = 1
       
       
 
-      Foreach ($Entity in $Entities)
-      { 
+      Foreach ($Entity in $Entities) { 
         Write-Verbose -Message ('{0}: Importing detailed information about Entity {1}' -F $MyInvocation.MyCommand.Name, $Entity.Name) 
         
         $FieldTable[$Entity.Name] = Get-AtwsFieldInfo -Entity $Entity.Name
 
         # Calculating progress percentage and displaying it
-        $Index = $Entities.IndexOf($Entity) +1
+        $Index = $Entities.IndexOf($Entity) + 1
         $PercentComplete = $Index / $Entities.Count * 100
         $Status = 'Entity {0}/{1} ({2:n0}%)' -F $Index, $Entities.Count, $PercentComplete
         $CurrentOperation = "GetFieldInfo('{0}')" -F $Entity.Name
@@ -85,14 +83,20 @@ Function Import-AtwsCmdLet
         $VerboseWarning = '{0}: About to create and Invoke functions for entity {1}. Do you want to continue?' -F $Caption, $Entity.Name
       }
       
+      # Add Custom Entities
+      $CustomEntities = Get-AtwsCustomEntity -All
+      Foreach ($Entity in $CustomEntities) {
+        $Entities += $Entity
+        $FieldTable[$Entity.Name] = Get-AtwsCustomEntity -FieldInfo $Entity.Name
+      }
+      
       $Activity = 'Creating and importing functions for all Autotask entities.'
             
-      Foreach ($Entity in $Entities)
-      {
+      Foreach ($Entity in $Entities) {
         Write-Verbose -Message ('{0}: Creating functions for entity {1}' -F $MyInvocation.MyCommand.Name, $Entity.Name) 
       
         # Calculating progress percentage and displaying it
-        $Index = $Entities.IndexOf($Entity) +1
+        $Index = $Entities.IndexOf($Entity) + 1
         $PercentComplete = $Index / $Entities.Count * 100
         $Status = 'Entity {0}/{1} ({2:n0}%)' -F $Index, $Entities.Count, $PercentComplete
         $CurrentOperation = 'Importing {0}' -F $Entity.Name
@@ -104,13 +108,10 @@ Function Import-AtwsCmdLet
        
         $FunctionDefinition = Get-AtwsFunctionDefinition -Entity $Entity -Prefix $Prefix -FieldInfo $FieldTable[$Entity.Name] 
         
-        If ($PSCmdlet.ShouldProcess($VerboseDescrition, $VerboseWarning, $Caption))
-        { 
-          Foreach ($Function in $FunctionDefinition.GetEnumerator())
-          {
+        If ($PSCmdlet.ShouldProcess($VerboseDescrition, $VerboseWarning, $Caption)) { 
+          Foreach ($Function in $FunctionDefinition.GetEnumerator()) {
   
-            If (-Not $NoDiskCache.IsPresent)
-            {
+            If (-Not $NoDiskCache.IsPresent) {
               Write-Verbose -Message ('{0}: Writing file for function  {1}' -F $MyInvocation.MyCommand.Name, $Function.Key)
                         
               $FilePath = '{0}\{1}.ps1' -F $CacheInfo.CacheDir, $Function.Key
@@ -118,8 +119,7 @@ Function Import-AtwsCmdLet
               $VerboseDescrition = '{0}: Overwriting {1}' -F $Caption, $FilePath
               $VerboseWarning = '{0}: About to overwrite {1}. Do you want to continue?' -F $Caption, $FilePath
 
-              If ($PSCmdlet.ShouldProcess($VerboseDescrition, $VerboseWarning, $Caption))
-              {
+              If ($PSCmdlet.ShouldProcess($VerboseDescrition, $VerboseWarning, $Caption)) {
                 Set-Content -Path $FilePath -Value $Function.Value -Force -Encoding UTF8
               }
             }
@@ -134,21 +134,19 @@ Function Import-AtwsCmdLet
       Write-Verbose -Message ('{0}: Writing Moduleversion info to  {1}' -F $MyInvocation.MyCommand.Name, $CacheInfo.CachePath)
                 
       $ModuleVersionInfo = New-Object -TypeName PSObject -Property @{
-        APIversion = $CacheInfo.APIversion
+        APIversion    = $CacheInfo.APIversion
         ModuleVersion = $CacheInfo.ModuleVersion
-        CI = $CacheInfo.CI
+        CI            = $CacheInfo.CI
       }
                     
       Export-Clixml -InputObject $ModuleVersionInfo -Path $CacheInfo.CachePath -Encoding UTF8
       Write-Progress -ParentId $ParentId -Activity $Activity -Completed
 
     }
-    Else
-    {
+    Else {
       Write-Verbose -Message ('{0}: Reading function definitions from {1}' -F $MyInvocation.MyCommand.Name, $CacheInfo.CachePath)
       $CacheFiles = '{0}\*.ps1' -F $CacheInfo.CacheDir
-      Foreach ($File in Get-ChildItem -Path $CacheFiles)
-      { 
+      Foreach ($File in Get-ChildItem -Path $CacheFiles) { 
         $ModuleFunctions += Get-Content -Path $File.FullName -Encoding UTF8 -Raw
       }
     }
@@ -162,7 +160,7 @@ Function Import-AtwsCmdLet
       $ModuleFunctions += (Get-Command $FunctionName).ScriptBlock.Ast.Extent.Text
     }
     # Our special function
-    $ModuleFunctions += ("Function Get-{0}Queue`n{{`n{1}`n}}`n" -F $Prefix, $((Get-Command Get-AtwsQueue).Definition -replace '#Prefix', $Prefix))
+    #$ModuleFunctions += ("Function Get-{0}Queue`n{{`n{1}`n}}`n" -F $Prefix, $((Get-Command Get-AtwsQueue).Definition -replace '#Prefix', $Prefix))
   }
   End
   {

@@ -43,15 +43,14 @@ Function Get-AtwsFieldInfo
   { 
     Write-Verbose ('{0}: Begin of function' -F $MyInvocation.MyCommand.Name)
         
-    If (-not($global:AtwsConnection[$Connection].Url))
-    {
+    If (-not($global:AtwsConnection[$Connection].Url)) {
       Throw [ApplicationException] 'Not connected to Autotask WebAPI. Run Connect-AutotaskWebAPI first.'
     }
-    Else
-    {
+    Else {
       $Atws = $global:AtwsConnection[$Connection]
     }
-    
+    # Get custom defined entities
+    [Array]$CustomEntities = Get-AtwsCustomEntity -All
   }
   
   Process
@@ -60,22 +59,13 @@ Function Get-AtwsFieldInfo
     $VerboseDescrition = '{0}: About to get built-in fields and userdefined fields for {1}s' -F $Caption, $Entity[0].GetType().name
     $VerboseWarning = '{0}: About to get built-in fields and userdefined fields for {1}s. Do you want to continue?' -F $Caption, $Entity[0].GetType().Name
 
-    If ($PSCmdlet.ShouldProcess($VerboseDescrition, $VerboseWarning, $Caption))
-    { 
-      $Result = $atws.GetFieldInfo($Entity)
-      <#
-      If ($Result.Count -gt 0)
-      { 
-        $UDFResult = $atws.GetUDFInfo($Entity)
-        If ($UDFResult.Count -gt 0)
-        {
-          Foreach ($UDF in $UDFResult)
-          {
-            $UDF.Name = 'UDF_{0}' -F ([URI]::EscapeDataString($UDF.Name) -replace '%','_')
-          }
-          $Result += $UDFResult
-        }
-      }#>
+    If ($PSCmdlet.ShouldProcess($VerboseDescrition, $VerboseWarning, $Caption)) { 
+      If ($CustomEntities.Name -contains $Entity) {
+        $Result = Get-AtwsCustomEntity -FieldInfo $Entity
+      }
+      Else {
+        $Result = $atws.GetFieldInfo($Entity)
+      }
     }
     
     If ($Result.Errors.Count -gt 0)
